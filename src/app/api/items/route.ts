@@ -3,12 +3,15 @@ import pool from '@/lib/db';
 
 export async function GET() {
   try {
+    console.log('[Items GET] Fetching items...');
     const client = await pool.connect();
     const result = await client.query('SELECT * FROM test_items ORDER BY created_at DESC');
     client.release();
     
+    console.log('[Items GET] Found items:', result.rows.length);
     return NextResponse.json({ items: result.rows });
   } catch (error) {
+    console.error('[Items GET] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
@@ -17,7 +20,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    console.log('[Items POST] Creating item...');
     const { name, description } = await request.json();
+    console.log('[Items POST] Received:', { name, description });
+    
     const client = await pool.connect();
     
     await client.query(`
@@ -35,8 +41,10 @@ export async function POST(request: Request) {
     );
     client.release();
     
+    console.log('[Items POST] Created:', result.rows[0]);
     return NextResponse.json({ item: result.rows[0] });
   } catch (error) {
+    console.error('[Items POST] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
