@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+};
+
 export async function GET() {
   try {
     console.log('[Redis GET] Starting fetch...');
@@ -30,12 +38,12 @@ export async function GET() {
     );
     
     console.log('[Redis GET] Returning items:', values);
-    return NextResponse.json({ items: values });
+    return NextResponse.json({ items: values }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[Redis GET] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -48,7 +56,20 @@ export async function POST(request: Request) {
     const client = await getRedisClient();
     console.log('[Redis POST] Client connected');
     
-    const fullKey = `test:${key}`;
+    const normalizedKey = typeof key === 'string' ? key.trim() : '';
+    if (!normalizedKey) {
+      return NextResponse.json(
+        { error: 'Key is required' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+    if (typeof value !== 'string' || !value) {
+      return NextResponse.json(
+        { error: 'Value is required' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+    const fullKey = normalizedKey.startsWith('test:') ? normalizedKey : `test:${normalizedKey}`;
     console.log('[Redis POST] Setting key:', fullKey);
     
     if (ttl && ttl > 0) {
@@ -63,11 +84,14 @@ export async function POST(request: Request) {
     const verifyValue = await client.get(fullKey);
     console.log('[Redis POST] Verified value:', verifyValue);
     
-    return NextResponse.json({ success: true, key: fullKey, value: verifyValue });
+    return NextResponse.json(
+      { success: true, key: fullKey, value: verifyValue },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error('[Redis POST] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

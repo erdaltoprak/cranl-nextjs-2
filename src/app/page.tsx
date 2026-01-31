@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface DbInfo {
   connected: boolean;
@@ -32,6 +32,8 @@ interface RedisItem {
 }
 
 export default function Home() {
+  const cacheBustRef = useRef<string>('');
+  const requestSeqRef = useRef(0);
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [newItemName, setNewItemName] = useState('');
@@ -44,19 +46,34 @@ export default function Home() {
   const [newRedisValue, setNewRedisValue] = useState('');
   const [newRedisTtl, setNewRedisTtl] = useState('');
 
+  const cacheBustedUrl = (path: string) => {
+    const params = new URLSearchParams();
+    if (cacheBustRef.current) params.set('v', cacheBustRef.current);
+    params.set('r', String(requestSeqRef.current++));
+    return `${path}?${params.toString()}`;
+  };
+
   const fetchDbInfo = async () => {
     try {
-      const res = await fetch('/api/db-info');
+      const res = await fetch(cacheBustedUrl('/api/db-info'), {
+        cache: 'no-store',
+      });
       const data = await res.json();
       setDbInfo(data);
-    } catch (error) {
+    } catch {
       setDbInfo({ connected: false, error: 'Failed to fetch DB info' });
     }
   };
 
   const fetchItems = async () => {
     try {
-      const res = await fetch('/api/items');
+      const res = await fetch(cacheBustedUrl('/api/items'), {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        console.error('Failed to fetch items:', await res.text());
+        return;
+      }
       const data = await res.json();
       setItems(data.items || []);
     } catch (error) {
@@ -71,6 +88,7 @@ export default function Home() {
       const res = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ name: newItemName, description: newItemDesc }),
       });
       console.log('[Frontend] Add item response:', res.status);
@@ -90,7 +108,7 @@ export default function Home() {
   const deleteItem = async (id: number) => {
     console.log('[Frontend] Deleting item:', id);
     try {
-      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE', cache: 'no-store' });
       console.log('[Frontend] Delete response:', res.status);
       if (!res.ok) {
         console.error('[Frontend] Delete failed:', await res.text());
@@ -105,17 +123,25 @@ export default function Home() {
 
   const fetchRedisInfo = async () => {
     try {
-      const res = await fetch('/api/redis-info');
+      const res = await fetch(cacheBustedUrl('/api/redis-info'), {
+        cache: 'no-store',
+      });
       const data = await res.json();
       setRedisInfo(data);
-    } catch (error) {
+    } catch {
       setRedisInfo({ connected: false, error: 'Failed to fetch Redis info' });
     }
   };
 
   const fetchRedisItems = async () => {
     try {
-      const res = await fetch('/api/redis');
+      const res = await fetch(cacheBustedUrl('/api/redis'), {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        console.error('Failed to fetch Redis items:', await res.text());
+        return;
+      }
       const data = await res.json();
       setRedisItems(data.items || []);
     } catch (error) {
@@ -141,6 +167,7 @@ export default function Home() {
       const res = await fetch('/api/redis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify(body),
       });
       console.log('[Frontend] Redis add response:', res.status);
@@ -164,7 +191,7 @@ export default function Home() {
   const deleteRedisItem = async (key: string) => {
     // setLoading removed
     try {
-      await fetch(`/api/redis/${encodeURIComponent(key)}`, { method: 'DELETE' });
+      await fetch(`/api/redis/${encodeURIComponent(key)}`, { method: 'DELETE', cache: 'no-store' });
       await fetchRedisItems();
       await fetchRedisInfo();
     } catch (error) {
@@ -173,12 +200,16 @@ export default function Home() {
     // setLoading removed
   };
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
-    fetchDbInfo();
-    fetchItems();
-    fetchRedisInfo();
-    fetchRedisItems();
+    const buildId = (window as unknown as { __NEXT_DATA__?: { buildId?: string } }).__NEXT_DATA__?.buildId;
+    cacheBustRef.current = typeof buildId === 'string' ? buildId : '';
+    void fetchDbInfo();
+    void fetchItems();
+    void fetchRedisInfo();
+    void fetchRedisItems();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
@@ -265,7 +296,7 @@ export default function Home() {
                   disabled={!newItemName}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  'Add Item'
+                  Add Item
                 </button>
               </div>
             </div>
@@ -384,10 +415,10 @@ export default function Home() {
                 />
                 <button
                   onClick={addRedisItem}
-                  disabled={!newRedisKey}
+                  disabled={!newRedisKey || !newRedisValue}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  'Add Key'
+                  Add Key
                 </button>
               </div>
             </div>

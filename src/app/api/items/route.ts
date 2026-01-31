@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+};
+
 export async function GET() {
   try {
     console.log('[Items GET] Fetching items...');
@@ -9,12 +17,12 @@ export async function GET() {
     client.release();
     
     console.log('[Items GET] Found items:', result.rows.length);
-    return NextResponse.json({ items: result.rows });
+    return NextResponse.json({ items: result.rows }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[Items GET] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -42,11 +50,11 @@ export async function POST(request: Request) {
     client.release();
     
     console.log('[Items POST] Created:', result.rows[0]);
-    return NextResponse.json({ item: result.rows[0] });
+    return NextResponse.json({ item: result.rows[0] }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('[Items POST] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
