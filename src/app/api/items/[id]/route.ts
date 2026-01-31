@@ -3,11 +3,12 @@ import pool from '@/lib/db';
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const client = await pool.connect();
-    await client.query('DELETE FROM test_items WHERE id = $1', [params.id]);
+    await client.query('DELETE FROM test_items WHERE id = $1', [id]);
     client.release();
     
     return NextResponse.json({ success: true });
