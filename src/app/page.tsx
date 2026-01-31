@@ -36,7 +36,7 @@ export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemDesc, setNewItemDesc] = useState('');
-  const [loading, setLoading] = useState(false);
+
 
   const [redisInfo, setRedisInfo] = useState<RedisInfo | null>(null);
   const [redisItems, setRedisItems] = useState<RedisItem[]>([]);
@@ -66,33 +66,41 @@ export default function Home() {
 
   const addItem = async () => {
     if (!newItemName) return;
-    setLoading(true);
+    console.log('[Frontend] Adding item:', newItemName);
     try {
-      await fetch('/api/items', {
+      const res = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newItemName, description: newItemDesc }),
       });
+      console.log('[Frontend] Add item response:', res.status);
+      if (!res.ok) {
+        console.error('[Frontend] Add item failed:', await res.text());
+        return;
+      }
       setNewItemName('');
       setNewItemDesc('');
       await fetchItems();
       await fetchDbInfo();
     } catch (error) {
-      console.error('Failed to add item:', error);
+      console.error('[Frontend] Failed to add item:', error);
     }
-    setLoading(false);
   };
 
   const deleteItem = async (id: number) => {
-    setLoading(true);
+    console.log('[Frontend] Deleting item:', id);
     try {
-      await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      console.log('[Frontend] Delete response:', res.status);
+      if (!res.ok) {
+        console.error('[Frontend] Delete failed:', await res.text());
+        return;
+      }
       await fetchItems();
       await fetchDbInfo();
     } catch (error) {
-      console.error('Failed to delete item:', error);
+      console.error('[Frontend] Failed to delete item:', error);
     }
-    setLoading(false);
   };
 
   const fetchRedisInfo = async () => {
@@ -116,8 +124,12 @@ export default function Home() {
   };
 
   const addRedisItem = async () => {
-    if (!newRedisKey) return;
-    setLoading(true);
+    if (!newRedisKey || !newRedisValue) {
+      console.log('[Frontend] Key or value missing');
+      return;
+    }
+    console.log('[Frontend] Adding Redis item:', { key: newRedisKey, value: newRedisValue });
+    // setLoading removed
     try {
       const body: { key: string; value: string; ttl?: number } = {
         key: newRedisKey,
@@ -126,11 +138,18 @@ export default function Home() {
       if (newRedisTtl) {
         body.ttl = parseInt(newRedisTtl, 10);
       }
-      await fetch('/api/redis', {
+      const res = await fetch('/api/redis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      console.log('[Frontend] Redis add response:', res.status);
+      if (!res.ok) {
+        console.error('[Frontend] Redis add failed:', await res.text());
+        return;
+      }
+      const data = await res.json();
+      console.log('[Frontend] Redis add success:', data);
       setNewRedisKey('');
       setNewRedisValue('');
       setNewRedisTtl('');
@@ -139,11 +158,11 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to add Redis item:', error);
     }
-    setLoading(false);
+    // setLoading removed
   };
 
   const deleteRedisItem = async (key: string) => {
-    setLoading(true);
+    // setLoading removed
     try {
       await fetch(`/api/redis/${encodeURIComponent(key)}`, { method: 'DELETE' });
       await fetchRedisItems();
@@ -151,7 +170,7 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to delete Redis item:', error);
     }
-    setLoading(false);
+    // setLoading removed
   };
 
   useEffect(() => {
@@ -243,10 +262,10 @@ export default function Home() {
                 />
                 <button
                   onClick={addItem}
-                  disabled={loading || !newItemName}
+                  disabled={!newItemName}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Adding...' : 'Add Item'}
+                  'Add Item'
                 </button>
               </div>
             </div>
@@ -280,7 +299,7 @@ export default function Home() {
                       </div>
                       <button
                         onClick={() => deleteItem(item.id)}
-                        disabled={loading}
+                        
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                       >
                         Delete
@@ -365,10 +384,10 @@ export default function Home() {
                 />
                 <button
                   onClick={addRedisItem}
-                  disabled={loading || !newRedisKey}
+                  disabled={!newRedisKey}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Adding...' : 'Add Key'}
+                  'Add Key'
                 </button>
               </div>
             </div>
@@ -400,7 +419,7 @@ export default function Home() {
                       </div>
                       <button
                         onClick={() => deleteRedisItem(item.key)}
-                        disabled={loading}
+                        
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex-shrink-0"
                       >
                         Delete
